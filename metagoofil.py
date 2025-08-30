@@ -10,6 +10,7 @@ import threading
 import time
 import urllib
 
+
 # Third party Python libraries.
 # google == 2.0.1, module author changed import name to googlesearch
 # https://github.com/MarioVilas/googlesearch/commit/92309f4f23a6334a83c045f7c51f87b904e7d61d
@@ -21,7 +22,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-__version__ = "1.3.0"
+
+__version__ = "1.4.0"
 
 
 class DownloadWorker(threading.Thread):
@@ -60,18 +62,18 @@ class DownloadWorker(threading.Thread):
 
                     except KeyError as e:
                         print(
-                            f"[-] Exception for url: {url} -- {e} does not exist.  Extracting file size from "
+                            f"[-] Exception for url: {url} -- {e} does not exist. Extracting file size from "
                             "response.content length."
                         )
                         size = len(response.content)
 
                     mg.total_bytes += size
 
-                    # Strip any trailing /'s before extracting file name.  Use response.url in case there were HTTP
+                    # Strip any trailing /'s before extracting file name. Use response.url in case there were HTTP
                     # 301/302 redirects.
                     url_file_name = str(response.url.strip("/").split("/")[-1])
 
-                    # Decode URL file name if it's encoded.  No harm calling urllib.parse.unquote() if the URL file
+                    # Decode URL file name if it's encoded. No harm calling urllib.parse.unquote() if the URL file
                     # name isn't URL encoded.
                     filename = urllib.parse.unquote(url_file_name, encoding="utf-8")
 
@@ -171,8 +173,8 @@ class Metagoofil:
                 print(f"[-] EXCEPTION: {e}")
                 if e.code == 429:
                     print(
-                        "[*] Google is blocking you for making too many requests.  You will need to spread out the "
-                        "Google searches with metagoofil's switches or utilize SSH and dynamic SOCKS proxies.  Don't "
+                        "[*] Google is blocking you for making too many requests. You will need to spread out the "
+                        "Google searches with metagoofil's switches or utilize SSH and dynamic SOCKS proxies. Don't "
                         "know how to utilize SSH and dynamic SOCKS proxies?  Do yourself a favor and pick up a copy of "
                         "The Cyber Plumber's Handbook and interactive lab (https://gumroad.com/l/cph_book_and_lab) to "
                         "learn all about Secure Shell (SSH) tunneling, port redirection, and bending traffic like a "
@@ -277,8 +279,8 @@ if __name__ == "__main__":
         type=positive_float,
         default=30.0,
         help=(
-            "Delay (in seconds) between searches.  If it's too small Google may block your IP, too big and your search "
-            "may take a while.  Default: 30.0"
+            "Delay (in seconds) between searches. If it's too small Google may block your IP, too big and your search "
+            "may take a while. Default: 30.0"
         ),
     )
     parser.add_argument(
@@ -299,7 +301,7 @@ if __name__ == "__main__":
         action="store",
         type=positive_int,
         default=15,
-        help="Number of seconds to wait before timeout for unreachable/stale pages.  Default: 15",
+        help="Number of seconds to wait before timeout for unreachable/stale pages. Default: 15",
     )
     parser.add_argument(
         "-l",
@@ -307,7 +309,7 @@ if __name__ == "__main__":
         action="store",
         type=positive_int,
         default=100,
-        help="Maximum results to search.  Default: 100",
+        help="Maximum results to search. Default: 100",
     )
     parser.add_argument(
         "-n",
@@ -315,14 +317,14 @@ if __name__ == "__main__":
         action="store",
         type=positive_int,
         default=100,
-        help="Maximum number of files to download per filetype.  Default: 100",
+        help="Maximum number of files to download per filetype. Default: 100",
     )
     parser.add_argument(
         "-o",
         dest="save_directory",
         action="store",
-        default=os.getcwd(),
-        help='Directory to save downloaded files.  Default is current working directory, "."',
+        default="./data",
+        help='Directory to save downloaded files. Default is "./data"',
     )
     parser.add_argument(
         "-r",
@@ -330,7 +332,7 @@ if __name__ == "__main__":
         action="store",
         type=positive_int,
         default=8,
-        help="Number of downloader threads.  Default: 8",
+        help="Number of downloader threads. Default: 8",
     )
     parser.add_argument(
         "-t",
@@ -339,7 +341,7 @@ if __name__ == "__main__":
         type=csv_list,
         required=True,
         help=(
-            "file_types to download (pdf,doc,xls,ppt,odp,ods,docx,xlsx,pptx).  To search all 17,576 three-letter "
+            "file_types to download (pdf,doc,xls,ppt,odp,ods,docx,xlsx,pptx). To search all 17,576 three-letter "
             'file extensions, type "ALL"'
         ),
     )
