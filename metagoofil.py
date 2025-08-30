@@ -366,8 +366,8 @@ if __name__ == "__main__":
     if args.save_directory and args.download_files:
         print(f"[*] Downloaded files will be saved here: {args.save_directory}")
         if not os.path.exists(args.save_directory):
-            print(f"[+] Creating folder: {args.save_directory}")
-            os.mkdir(args.save_directory)
+            print(f"[-] The {args.save_directory} directory does not exist...exiting.")
+            sys.exit(1)
 
     if args.save_links is False:
         args.save_links = None
