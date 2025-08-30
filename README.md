@@ -45,7 +45,7 @@ docker build -t metagoofil .
 # This will save the files in the host ./data directory.
 docker run -it --rm \
     --user 1000:1000 \
-    -v $PWD:/app \
+    -v $PWD/data:/app/data \
     metagoofil \
     -d github.com -f -n 10 -r 4 -t pdf -w
 ```
