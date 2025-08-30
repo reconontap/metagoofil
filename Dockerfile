@@ -5,8 +5,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN addgroup --system metagoofil \
-    && adduser --system --ingroup metagoofil metagoofil
+RUN addgroup --gid 1000 --system metagoofil \
+    && adduser --uid 1000 --system --ingroup metagoofil metagoofil
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     git \
@@ -24,4 +24,4 @@ RUN chown -R metagoofil:metagoofil /app
 
 USER metagoofil
 
-ENTRYPOINT ["python", "metagoofil.py", "-o", "/app/data"]
+ENTRYPOINT ["python", "metagoofil.py", "-o", "/app"]
