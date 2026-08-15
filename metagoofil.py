@@ -12,10 +12,13 @@ import urllib
 
 
 # Third party Python libraries.
-# google == 2.0.1, module author changed import name to googlesearch
-# https://github.com/MarioVilas/googlesearch/commit/92309f4f23a6334a83c045f7c51f87b904e7d61d
-import googlesearch
 import requests
+
+# Local module: browser-based Google discovery. The original googlesearch HTML scraping is
+# dead -- Google now serves scraper clients a JS-only shell / 429 CAPTCHA, so it returned 0
+# results. browser_search drives a headed Chromium and pauses for the user to solve the
+# CAPTCHA. See browser_search.py and docs/superpowers/specs/.
+import browser_search
 
 # https://stackoverflow.com/questions/27981545/suppress-insecurerequestwarning-unverified-https-request-is-being-made-in-pytho
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -109,6 +112,8 @@ class Metagoofil:
         file_types,
         user_agent,
         download_files,
+        search_engine,
+        headless,
     ):
         self.domain = domain
         self.delay = delay
@@ -133,6 +138,13 @@ class Metagoofil:
         self.download_files = download_files
         self.total_bytes = 0
 
+        # Discovery engine. Currently only the headed-browser "google" engine is supported
+        # (it pauses for the user to solve Google's CAPTCHA). Chromium is launched lazily on
+        # the first search, so constructing this is cheap.
+        self.search_engine = search_engine
+        self.headless = headless
+        self.engine = browser_search.GoogleBrowserSearch(headless=headless)
+
     def go(self):
         # Kickoff the threadpool.
         for i in range(self.number_of_threads):
@@ -147,61 +159,45 @@ class Metagoofil:
             # Generate all three letter combinations.
             self.file_types = ["".join(i) for i in product(ascii_lowercase, repeat=3)]
 
-        for filetype in self.file_types:
-            # Stores URLs with files, clear out for each filetype.
-            self.files = []
+        try:
+            for filetype in self.file_types:
+                # Stores URLs with files, clear out for each filetype.
+                self.files = []
 
-            # Search for the files to download.
-            print(
-                f"[*] Searching for {self.search_max} .{filetype} files and waiting {self.delay} seconds between searches"
-            )
-            query = f"filetype:{filetype} site:{self.domain}"
-
-            try:
-                for url in googlesearch.search(
-                    query,
-                    start=0,
-                    stop=self.search_max,
-                    num=100,
-                    pause=self.delay,
-                    extra_params={"filter": "0"},
-                    user_agent=self.user_agent,
-                ):
-                    self.files.append(url)
-
-            except Exception as e:
-                print(f"[-] EXCEPTION: {e}")
-                if e.code == 429:
-                    print(
-                        "[*] Google is blocking you for making too many requests. You will need to spread out the "
-                        "Google searches with metagoofil's switches or utilize SSH and dynamic SOCKS proxies. Don't "
-                        "know how to utilize SSH and dynamic SOCKS proxies?  Do yourself a favor and pick up a copy of "
-                        "The Cyber Plumber's Handbook and interactive lab (https://gumroad.com/l/cph_book_and_lab) to "
-                        "learn all about Secure Shell (SSH) tunneling, port redirection, and bending traffic like a "
-                        "boss."
-                    )
-                    print("[*] Exiting for now...")
+                # Search for the files to download via the browser engine. The window opens
+                # once (on the first filetype) and is reused, so the user solves at most one
+                # CAPTCHA for the whole run.
+                print(f"[*] Searching Google for .{filetype} files on {self.domain} (browser engine)")
+                try:
+                    self.files = self.engine.search_filetype(self.domain, filetype, self.search_max)
+                except browser_search.BrowserUnavailable as e:
+                    print(f"[-] {e}")
                     sys.exit(1)
+                except KeyboardInterrupt:
+                    print("\n[*] Search interrupted by user.")
+                    break
 
-            # Since googlesearch.search method retrieves URLs in batches of 100, ensure the file list only contains the
-            # requested amount.
-            if len(self.files) > self.search_max:
-                self.files = self.files[: -(len(self.files) - self.search_max)]
+                # Safety net: never exceed the requested amount.
+                if len(self.files) > self.search_max:
+                    self.files = self.files[: self.search_max]
 
-            # Download files if specified with -w switch.
-            if self.download_files:
-                self.download()
+                # Download files if specified with -w switch.
+                if self.download_files:
+                    self.download()
 
-            # Otherwise, just display them.
-            else:
-                print(f"[*] Results: {len(self.files)} .{filetype} files found")
-                for file_name in self.files:
-                    print(file_name)
+                # Otherwise, just display them.
+                else:
+                    print(f"[*] Results: {len(self.files)} .{filetype} files found")
+                    for file_name in self.files:
+                        print(file_name)
 
-            # Save links to output to file.
-            if self.save_links:
-                for f in self.files:
-                    self.save_links.write(f"{f}\n")
+                # Save links to output to file.
+                if self.save_links:
+                    for f in self.files:
+                        self.save_links.write(f"{f}\n")
+        finally:
+            # Always tear down Chromium, even on Ctrl-C or an unexpected error.
+            self.engine.close()
 
         if self.save_links:
             self.save_links.close()
@@ -279,8 +275,9 @@ if __name__ == "__main__":
         type=positive_float,
         default=30.0,
         help=(
-            "Delay (in seconds) between searches. If it's too small Google may block your IP, too big and your search "
-            "may take a while. Default: 30.0"
+            "Legacy flag, accepted for backward compatibility. Under the browser engine you "
+            "pace Google yourself by solving the CAPTCHA, so this delay no longer spaces "
+            "searches. Default: 30.0"
         ),
     )
     parser.add_argument(
@@ -350,7 +347,9 @@ if __name__ == "__main__":
         dest="user_agent",
         nargs="?",
         default=None,
-        help="R|User-Agent for googlesearch and file retrieval against -d domain.\n"
+        help="R|User-Agent for file retrieval (downloads) against -d domain.\n"
+        "The browser discovery engine uses Chromium's own real User-Agent (a fake one is a\n"
+        "bot signal), so -u affects downloads only.\n"
         "no -u = Randomize User-Agent (recommended)\n"
         '-u "My custom user agent 2.0" = Your customized User-Agent',
     )
@@ -360,6 +359,27 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Download the files, instead of just viewing search results.",
+    )
+    parser.add_argument(
+        "--search",
+        dest="search_engine",
+        action="store",
+        default="google",
+        choices=["google"],
+        help=(
+            "Discovery engine. Only 'google' (headed browser, pauses for you to solve the "
+            "CAPTCHA) is supported. Default: google"
+        ),
+    )
+    parser.add_argument(
+        "--headless",
+        dest="headless",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the browser engine headless. NOTE: you cannot solve a CAPTCHA in headless "
+            "mode, so a challenged search returns nothing. Default: headed (recommended)."
+        ),
     )
     args = parser.parse_args()
 

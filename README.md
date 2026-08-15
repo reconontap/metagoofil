@@ -1,5 +1,11 @@
 # Metagoofil
 
+> **2026 refresh:** Google now blocks the old `googlesearch` HTML scraping (JS-only shell /
+> `429` CAPTCHA), so discovery returned 0 results. Document discovery is now done through a
+> **headed browser engine** that pauses for you to solve Google's CAPTCHA. See
+> **[USAGE.md](USAGE.md)** for the refreshed install (`playwright install chromium`) and
+> commands. It requires a desktop session (headed Chromium + a terminal).
+
 ## Introduction
 
 metagoofil searches Google for specific types of files being publicly hosted on a web site and optionally downloads them
