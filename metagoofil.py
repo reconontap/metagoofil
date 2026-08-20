@@ -212,7 +212,8 @@ class Metagoofil:
     def download(self):
         self.counter = 1
         for url in self.files:
-            if self.counter <= self.download_file_limit:
+            # download_file_limit is None => download every file found (bounded by -l).
+            if self.download_file_limit is None or self.counter <= self.download_file_limit:
                 self.queue.put(url)
                 self.counter += 1
 
@@ -223,6 +224,22 @@ def get_timestamp():
     now = time.localtime()
     timestamp = time.strftime("%Y%m%d_%H%M%S", now)
     return timestamp
+
+
+def resolve_download_options(save_directory, download_files):
+    """Decide whether to download and where, from the raw -o / -w values.
+
+    Rules (see USAGE.md):
+      * -o <dir> given  -> download into <dir>  (i.e. -o implies download)
+      * -w but no -o    -> download into ./data
+      * neither         -> list results only, no directory
+    Returns (download_files, save_directory).
+    """
+    if save_directory is not None:
+        download_files = True
+    elif download_files:
+        save_directory = "./data"
+    return download_files, save_directory
 
 
 def csv_list(string):
@@ -313,15 +330,18 @@ if __name__ == "__main__":
         dest="download_file_limit",
         action="store",
         type=positive_int,
-        default=100,
-        help="Maximum number of files to download per filetype. Default: 100",
+        default=None,
+        help="Maximum number of files to download PER filetype. Default: all found (bounded by -l).",
     )
     parser.add_argument(
         "-o",
         dest="save_directory",
         action="store",
-        default="./data",
-        help='Directory to save downloaded files. Default is "./data"',
+        default=None,
+        help=(
+            "Directory to download the found files into. Passing -o implies download and the "
+            'directory is created if it does not exist. Default (with -w, no -o): "./data".'
+        ),
     )
     parser.add_argument(
         "-r",
@@ -358,7 +378,7 @@ if __name__ == "__main__":
         dest="download_files",
         action="store_true",
         default=False,
-        help="Download the files, instead of just viewing search results.",
+        help="Download the files (into -o, or ./data) instead of just listing them. Implied by -o.",
     )
     parser.add_argument(
         "--search",
@@ -383,11 +403,15 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.save_directory and args.download_files:
+    # -o implies download; -w downloads to ./data. Create the target directory if needed.
+    args.download_files, args.save_directory = resolve_download_options(
+        args.save_directory, args.download_files
+    )
+    if args.download_files:
+        os.makedirs(args.save_directory, exist_ok=True)
         print(f"[*] Downloaded files will be saved here: {args.save_directory}")
-        if not os.path.exists(args.save_directory):
-            print(f"[-] The {args.save_directory} directory does not exist...exiting.")
-            sys.exit(1)
+    else:
+        print("[*] Listing results only — pass -o <dir> (or -w) to download the files.")
 
     if args.save_links is False:
         args.save_links = None

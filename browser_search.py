@@ -26,6 +26,11 @@ CHALLENGE_MARKERS = (
     'id="captcha-form"',
 )
 
+# Google serves ~10 organic results per page and now IGNORES the num= parameter, so the
+# result offset (&start=) must advance by 10 per page. Stepping by 100 (a stale assumption
+# from when num=100 worked) skips results 10-99 and caps every search at the first page.
+PAGE_SIZE = 10
+
 
 def is_challenge(url, html):
     """True if the page is a Google bot-challenge (CAPTCHA / "unusual traffic") page."""
@@ -105,7 +110,7 @@ class GoogleBrowserSearch:
 
     SEARCH_URL = "https://www.google.com/search?q={query}&num=100&start={start}"
 
-    def __init__(self, headless=False, profile_dir=None, page_timeout=30, jitter=1.0, max_pages=10):
+    def __init__(self, headless=False, profile_dir=None, page_timeout=30, jitter=1.0, max_pages=50):
         self.headless = headless
         self.profile_dir = profile_dir or os.path.expanduser("~/.metagoofil/profile")
         self.page_timeout = page_timeout
@@ -123,7 +128,7 @@ class GoogleBrowserSearch:
         for page_index in range(self.max_pages):
             if len(results) >= max_results:
                 break
-            url = self.SEARCH_URL.format(query=quote_plus(query), start=page_index * 100)
+            url = self.SEARCH_URL.format(query=quote_plus(query), start=page_index * PAGE_SIZE)
             try:
                 current_url, html = self._fetch(url)
             except BrowserUnavailable:

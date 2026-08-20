@@ -44,36 +44,48 @@ cookies carry over and later runs are challenged less often.
 python3 metagoofil.py -d nasa.gov -t pdf -l 20
 ```
 
-**Download them (`-w`) into ./data, cap at 10 files:**
+**Download every found file into a folder (`-o` implies download and creates the folder):**
 ```bash
-mkdir -p data
-python3 metagoofil.py -d nasa.gov -t pdf -l 50 -n 10 -w -o ./data
+python3 metagoofil.py -d nasa.gov -t pdf -o nasa_docs
+```
+`-o nasa_docs` creates `nasa_docs/` if missing and downloads all PDFs found (up to `-l`).
+
+**Cap how many are downloaded per filetype with `-n`:**
+```bash
+python3 metagoofil.py -d nasa.gov -t pdf -l 50 -n 10 -o nasa_docs   # find 50, download 10
 ```
 
 **Multiple filetypes (one browser session, solve captcha once):**
 ```bash
-python3 metagoofil.py -d acme.com -t pdf,docx,xlsx -l 30 -w -o ./data
+python3 metagoofil.py -d acme.com -t pdf,docx,xlsx -o acme_docs
 ```
 
 ## Extract metadata (unchanged design)
 
 This fork intentionally does **not** parse metadata itself — use `exiftool` on the downloads:
 ```bash
-exiftool -r ./data/*.pdf | egrep -i "Author|Creator|Email|Producer|Template|Company" | sort -u
+exiftool -r nasa_docs/*.pdf | egrep -i "Author|Creator|Email|Producer|Template|Company" | sort -u
 ```
 
 ## Flags reference (new / changed)
 
 | Flag | Meaning |
 |------|---------|
+| `-o DIR` | Folder to download the found files into. **Passing `-o` implies download** and `DIR` is created if it doesn't exist. |
+| `-w` | Also triggers download; with no `-o` it saves to `./data`. Redundant if you pass `-o`. |
+| `-n N` | Max files to download **per filetype**. Default: **all found** (bounded by `-l`). e.g. `-n 10`. |
+| `-l N` | Max results to search **per filetype**. Default: 100. Paginates Google in pages of 10. |
 | `--search google` | Discovery engine. Only `google` (headed browser, captcha pause) is supported. Default. |
 | `--headless` | Run the browser headless. **You cannot solve a CAPTCHA headless**, so a challenged search returns nothing. Not recommended. |
 | `-u "UA…"` | User-Agent for **file downloads only**. The browser engine uses Chromium's real UA (a fake one is a bot signal), so `-u` no longer affects discovery. |
 | `-e DELAY` | Legacy, accepted for compatibility. You pace Google by solving the CAPTCHA, so it no longer spaces searches. |
 
-Unchanged: `-d` domain, `-t` filetypes, `-l` max results to search, `-n` max downloads per
-filetype, `-o` save dir, `-r` downloader threads, `-i` download timeout, `-f` save links,
-`-w` download.
+Unchanged: `-d` domain, `-t` filetypes, `-r` downloader threads, `-i` download timeout,
+`-f` save links.
+
+> **No results / only a few?** Google serves ~10 results per page; the engine paginates until
+> it runs out or hits `-l`. If you passed `-o`/`-w` but files show `Connection timed out`, the
+> **box can't reach the target host** (proxy/egress) — discovery via Google still worked.
 
 ## Notes / limits
 
